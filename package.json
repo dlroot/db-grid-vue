@@ -19,6 +19,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:demo": "vite build --config vite.demo.config.ts",
     "build:types": "vue-tsc --declaration --emitDeclarationOnly --outDir dist",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
@@ -57,6 +58,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/qclaw/db-grid"
+    "url": "https://github.com/dlroot/db-grid-vue"
   }
 }
