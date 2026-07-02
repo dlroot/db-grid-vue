@@ -21,6 +21,11 @@ class DbGridElement extends HTMLElement {
   connectedCallback() {
     this.render();
     this.loadStyles();
+    this._initialized = true;
+    // 如果数据在 component 定义前就设置好了，这里补渲染
+    if (this._rowData.length > 0 || this._columnDefs.length > 0) {
+      this.renderTable();
+    }
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
@@ -81,6 +86,7 @@ class DbGridElement extends HTMLElement {
   renderTable() {
     const header = this.querySelector('.db-grid-header');
     const body = this.querySelector('.db-grid-body');
+    if (!header || !body) return; // DOM 还没准备好就跳过
     
     // 渲染表头
     header.innerHTML = '';
@@ -205,9 +211,9 @@ class DbGridElement extends HTMLElement {
   }
 
   // JavaScript API
-  set rowData(data) { this._rowData = data; this._currentPage = 1; if (this.querySelector('.db-grid-body')) this.renderTable(); }
+  set rowData(data) { this._rowData = data || []; this._currentPage = 1; if (this._initialized) this.renderTable(); }
   get rowData() { return this._rowData; }
-  set columnDefs(cols) { this._columnDefs = cols; if (this.querySelector('.db-grid-body')) this.renderTable(); }
+  set columnDefs(cols) { this._columnDefs = cols || []; if (this._initialized) this.renderTable(); }
   get columnDefs() { return this._columnDefs; }
 
   exportToExcel(filename = 'export.xlsx') {

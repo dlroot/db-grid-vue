@@ -28,6 +28,8 @@
     <button onclick="resetState()">重置状态</button>
   </div>
   
+  <script src="./db-grid-standalone.js"></script>
+  
   <script>
     const sampleData = [
       { id: 1, name: '张三', age: 28, department: '技术部', salary: 25000 },
@@ -85,9 +87,12 @@
     function refreshData() { document.getElementById('grid').refreshData(); }
     function resetState() { document.getElementById('grid').resetState(); }
     
-    init();
+    // 等 DOM 完全就绪后再设置数据
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
   </script>
-  
-  <script src="./db-grid-standalone.js"></script>
 </body>
 </html>
