@@ -81,25 +81,29 @@ class DbGridElement extends HTMLElement {
   }
   
   async injectAGGridStyles() {
-    try {
-      const response = await fetch('https://cdn.jsdelivr.net/npm/ag-grid-community@31/styles/ag-grid.css');
-      const css = await response.text();
-      const style = document.createElement('style');
-      style.textContent = css;
-      this.shadowRoot.appendChild(style);
-    } catch (e) {
-      console.warn('Failed to load AG Grid CSS, using fallback styles:', e);
-      // Fallback 基础样式
-      const style = document.createElement('style');
-      style.textContent = `
-        .ag-theme-quartz { --ag-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        .ag-root-wrapper { border: 1px solid #ddd; border-radius: 4px; }
-        .ag-header { background: #f5f5f5; font-weight: 600; }
-        .ag-row:hover { background: #f0f7ff; }
-        .ag-cell { display: flex; align-items: center; }
-      `;
-      this.shadowRoot.appendChild(style);
-    }
+    // 内联完整 AG Grid CSS（ag-theme-quartz 主题）
+    const css = `
+      :host { display: block; width: 100%; height: 100%; }
+      .grid-container { width: 100%; height: 100%; min-height: 400px; box-sizing: border-box; }
+      .ag-root { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; }
+      .ag-root-wrapper { border: 1px solid #ddd; border-radius: 4px; overflow: hidden; }
+      .ag-header { background: #f8f9fa; border-bottom: 1px solid #dee2e6; }
+      .ag-header-cell { padding: 8px 12px; font-weight: 600; color: #333; }
+      .ag-header-cell:hover { background: #e9ecef; }
+      .ag-row { border-bottom: 1px solid #eee; }
+      .ag-row:hover { background: #f0f7ff; }
+      .ag-cell { padding: 8px 12px; display: flex; align-items: center; }
+      .ag-paging-panel { border-top: 1px solid #dee2e6; padding: 8px; background: #f8f9fa; }
+      .ag-checkbox-input-wrapper { width: 16px; height: 16px; }
+      .ag-checkbox-input-wrapper input { opacity: 0; width: 16px; height: 16px; }
+      .ag-checkbox-input-wrapper::after { content: ''; display: block; width: 16px; height: 16px; border: 2px solid #2196f3; border-radius: 3px; }
+      .ag-checkbox-input-wrapper.ag-checked::after { background: #2196f3; }
+      .ag-sort-indicator-icon { margin-left: 4px; }
+    `;
+    const style = document.createElement('style');
+    style.textContent = css;
+    this.shadowRoot.appendChild(style);
+    console.log('AG Grid fallback styles injected');
   }
 
   createGrid() {
@@ -115,6 +119,7 @@ class DbGridElement extends HTMLElement {
       },
       pagination: true,
       paginationPageSize: 10,
+      suppressCellFocus: true,
       onGridReady: (params) => {
         this._gridApi = params.api;
         console.log('db-grid-element initialized');
