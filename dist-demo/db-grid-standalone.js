@@ -1,5 +1,5 @@
-// db-grid Web Component - 独立版本，不依赖 Angular
-// 使用 AG Grid Community Edition
+// db-grid Web Component - 独立版本
+// 使用 AG Grid Community Edition，样式通过 Light DOM 加载
 
 class DbGridElement extends HTMLElement {
   static get observedAttributes() {
@@ -8,62 +8,58 @@ class DbGridElement extends HTMLElement {
 
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
     this._gridApi = null;
     this._rowData = [];
     this._columnDefs = [];
+    this._initialized = false;
   }
 
   connectedCallback() {
-    this.render();
-    this.initGrid();
-  }
-  
-  render() {
-    this.shadowRoot.innerHTML = `
-      <style>
-        :host {
-          display: block;
-          width: 100%;
-          height: 100%;
-          min-height: 400px;
-        }
-        .grid-container {
-          width: 100%;
-          height: 100%;
-          min-height: 400px;
-        }
-      </style>
-      <div class="grid-container"></div>
-    `;
+    if (this._initialized) return;
+    this._initialized = true;
+    
+    // 确保容器 div 存在
+    if (!this.querySelector('.grid-container')) {
+      const container = document.createElement('div');
+      container.className = 'grid-container';
+      this.appendChild(container);
+    }
+    
+    // 加载 AG Grid JS 和 CSS
+    this.loadAGGrid().then(() => this.createGrid());
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
-    if (oldValue === newValue) return;
+    if (oldValue === newValue || !this._gridApi) return;
     
-    if (name === 'row-data' && this._gridApi) {
+    if (name === 'row-data') {
       try {
-        const data = JSON.parse(newValue || '[]');
-        this._rowData = data;
-        this._gridApi.setGridOption('rowData', data);
-      } catch (e) {
-        console.error('Failed to parse row-data:', e);
-      }
+        this._rowData = JSON.parse(newValue || '[]');
+        this._gridApi.setGridOption('rowData', this._rowData);
+      } catch (e) { console.error('Failed to parse row-data:', e); }
     }
     
-    if (name === 'column-defs' && this._gridApi) {
+    if (name === 'column-defs') {
       try {
-        const cols = JSON.parse(newValue || '[]');
-        this._columnDefs = cols;
-        this._gridApi.setGridOption('columnDefs', cols);
-      } catch (e) {
-        console.error('Failed to parse column-defs:', e);
-      }
+        this._columnDefs = JSON.parse(newValue || '[]');
+        this._gridApi.setGridOption('columnDefs', this._columnDefs);
+      } catch (e) { console.error('Failed to parse column-defs:', e); }
     }
   }
 
-  async initGrid() {
-    // 等待 AG Grid 加载
+  async loadAGGrid() {
+    // 加载 AG Grid CSS
+    if (!document.querySelector('link[data-ag-grid-css]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://cdn.jsdelivr.net/npm/ag-grid-community@31/styles/ag-grid.css';
+      link.setAttribute('data-ag-grid-css', 'true');
+      document.head.appendChild(link);
+      // 等待 CSS 加载
+      await new Promise(resolve => link.onload = resolve);
+    }
+    
+    // 加载 AG Grid JS
     if (typeof agGrid === 'undefined') {
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
@@ -73,41 +69,10 @@ class DbGridElement extends HTMLElement {
         document.head.appendChild(script);
       });
     }
-    
-    // 将 AG Grid CSS 注入到 shadow DOM
-    await this.injectAGGridStyles();
-    
-    this.createGrid();
-  }
-  
-  async injectAGGridStyles() {
-    // 内联完整 AG Grid CSS（ag-theme-quartz 主题）
-    const css = `
-      :host { display: block; width: 100%; height: 100%; }
-      .grid-container { width: 100%; height: 100%; min-height: 400px; box-sizing: border-box; }
-      .ag-root { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; }
-      .ag-root-wrapper { border: 1px solid #ddd; border-radius: 4px; overflow: hidden; }
-      .ag-header { background: #f8f9fa; border-bottom: 1px solid #dee2e6; }
-      .ag-header-cell { padding: 8px 12px; font-weight: 600; color: #333; }
-      .ag-header-cell:hover { background: #e9ecef; }
-      .ag-row { border-bottom: 1px solid #eee; }
-      .ag-row:hover { background: #f0f7ff; }
-      .ag-cell { padding: 8px 12px; display: flex; align-items: center; }
-      .ag-paging-panel { border-top: 1px solid #dee2e6; padding: 8px; background: #f8f9fa; }
-      .ag-checkbox-input-wrapper { width: 16px; height: 16px; }
-      .ag-checkbox-input-wrapper input { opacity: 0; width: 16px; height: 16px; }
-      .ag-checkbox-input-wrapper::after { content: ''; display: block; width: 16px; height: 16px; border: 2px solid #2196f3; border-radius: 3px; }
-      .ag-checkbox-input-wrapper.ag-checked::after { background: #2196f3; }
-      .ag-sort-indicator-icon { margin-left: 4px; }
-    `;
-    const style = document.createElement('style');
-    style.textContent = css;
-    this.shadowRoot.appendChild(style);
-    console.log('AG Grid fallback styles injected');
   }
 
   createGrid() {
-    const container = this.shadowRoot.querySelector('.grid-container');
+    const container = this.querySelector('.grid-container');
     
     const gridOptions = {
       columnDefs: this._columnDefs,
@@ -119,7 +84,6 @@ class DbGridElement extends HTMLElement {
       },
       pagination: true,
       paginationPageSize: 10,
-      suppressCellFocus: true,
       onGridReady: (params) => {
         this._gridApi = params.api;
         console.log('db-grid-element initialized');
@@ -136,10 +100,7 @@ class DbGridElement extends HTMLElement {
       this._gridApi.setGridOption('rowData', data);
     }
   }
-
-  get rowData() {
-    return this._rowData;
-  }
+  get rowData() { return this._rowData; }
 
   set columnDefs(cols) {
     this._columnDefs = cols;
@@ -147,31 +108,17 @@ class DbGridElement extends HTMLElement {
       this._gridApi.setGridOption('columnDefs', cols);
     }
   }
-
-  get columnDefs() {
-    return this._columnDefs;
-  }
+  get columnDefs() { return this._columnDefs; }
 
   exportToExcel(filename = 'export.xlsx') {
-    if (this._gridApi) {
-      this._gridApi.exportDataAsExcel({ fileName: filename });
-    }
+    this._gridApi?.exportDataAsExcel({ fileName: filename });
   }
-
-  refreshData() {
-    if (this._gridApi) {
-      this._gridApi.refreshCells();
-    }
-  }
-
+  refreshData() { this._gridApi?.refreshCells(); }
   resetState() {
-    if (this._gridApi) {
-      this._gridApi.resetColumnState();
-      this._gridApi.setFilterModel(null);
-    }
+    this._gridApi?.resetColumnState();
+    this._gridApi?.setFilterModel(null);
   }
 }
 
-// 注册 Web Component
 customElements.define('db-grid-element', DbGridElement);
 console.log('db-grid-element registered successfully');
