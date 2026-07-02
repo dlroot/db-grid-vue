@@ -38,12 +38,12 @@ class DbGridElement extends HTMLElement {
     const style = document.createElement('style');
     style.id = 'db-grid-styles';
     style.textContent = `
-      .db-grid { width: 100%; height: 100%; min-height: 400px; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: #333; }
+      .db-grid { width: 100%; height: 100%; min-height: 400px; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: #333; box-sizing: border-box; display: flex; flex-direction: column; }
       .db-grid-header { display: flex; background: #f8f9fa; border-bottom: 2px solid #e9ecef; font-weight: 600; color: #495057; }
       .db-grid-header-cell { padding: 12px 16px; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px; transition: background 0.15s; }
       .db-grid-header-cell:hover { background: #e9ecef; }
       .db-grid-header-cell.sorted { color: #2196f3; }
-      .db-grid-body { overflow-y: auto; flex: 1; }
+      .db-grid-body { overflow-y: auto; flex: 1; min-height: 0; }
       .db-grid-row { display: flex; border-bottom: 1px solid #eee; transition: background 0.1s; }
       .db-grid-row:hover { background: #f0f7ff; }
       .db-grid-row.selected { background: #e3f2fd; }
@@ -66,7 +66,7 @@ class DbGridElement extends HTMLElement {
 
   render() {
     this.innerHTML = `
-      <div class="db-grid" style="display:flex;flex-direction:column;">
+      <div class="db-grid">
         <div class="db-grid-header"></div>
         <div class="db-grid-body"></div>
         <div class="db-grid-footer">
