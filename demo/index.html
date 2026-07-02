@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>db-grid-element Demo</title>
-  <link rel="stylesheet" href="./styles-WAO5YLSM.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31/styles/ag-grid.css">
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; }
     h1 { color: #2196f3; }
@@ -17,9 +17,9 @@
 <body>
   <h1>db-grid-element Web Component Demo</h1>
   
-  <div id="status" class="loading">等待 db-grid-element 注册...</div>
+  <div id="status" class="loading">正在加载 AG Grid...</div>
   
-  <db-grid-element id="grid" style="display: block; width: 100%; height: 400px; border: 1px solid #ddd;" row-data="[]" column-defs="[]"></db-grid-element>
+  <db-grid-element id="grid" style="display: block; width: 100%; height: 400px; border: 1px solid #ddd;"></db-grid-element>
   
   <div style="margin-top: 20px;">
     <h3>API 测试</h3>
@@ -36,39 +36,42 @@
       { id: 3, name: '王五', age: 42, department: '管理层', salary: 50000 },
       { id: 4, name: '赵六', age: 26, department: '技术部', salary: 22000 },
       { id: 5, name: '钱七', age: 31, department: '市场部', salary: 28000 },
+      { id: 6, name: '孙八', age: 29, department: '设计部', salary: 26000 },
+      { id: 7, name: '周九', age: 38, department: '运营部', salary: 32000 },
+      { id: 8, name: '吴十', age: 45, department: '管理层', salary: 55000 },
+      { id: 9, name: '郑一', age: 24, department: '技术部', salary: 20000 },
+      { id: 10, name: '王二', age: 33, department: '产品部', salary: 29000 },
     ];
     
     const columnDefs = [
-      { field: 'id', headerName: 'ID', width: 80 },
+      { field: 'id', headerName: 'ID', width: 80, checkboxSelection: true },
       { field: 'name', headerName: '姓名', width: 120 },
       { field: 'age', headerName: '年龄', width: 100 },
       { field: 'department', headerName: '部门', width: 150 },
       { field: 'salary', headerName: '薪资', width: 120, 
-        cellRenderer: (params) => '¥' + params.value.toLocaleString() },
+        valueFormatter: (params) => '¥' + params.value.toLocaleString() },
     ];
-    
-    // 等待 custom element 注册
-    async function waitForCustomElement() {
-      await customElements.whenDefined('db-grid-element');
-    }
     
     async function init() {
       const status = document.getElementById('status');
-      const grid = document.getElementById('grid');
       
+      // 等待 custom element 定义
       try {
-        status.textContent = '正在等待 db-grid-element 注册...';
-        status.className = 'loading';
+        await customElements.whenDefined('db-grid-element');
         
-        await waitForCustomElement();
+        const grid = document.getElementById('grid');
         
-        status.textContent = 'db-grid-element 注册成功！正在初始化数据...';
+        status.textContent = 'db-grid-element 已注册！正在加载数据...';
         status.className = 'success';
         
-        await new Promise(r => setTimeout(r, 100));
+        // 等待一小段时间确保 DOM 就绪
+        await new Promise(r => setTimeout(r, 200));
         
+        // 设置数据
         grid.rowData = sampleData;
         grid.columnDefs = columnDefs;
+        
+        status.textContent = '✅ 表格加载成功！共 ' + sampleData.length + ' 条数据';
         
         console.log('db-grid-element 初始化完成');
         console.log('rowData:', grid.rowData);
@@ -104,7 +107,7 @@
     init();
   </script>
   
-  <!-- 加载打包后的 Angular Elements (无 ES 模块) -->
-  <script src="./db-grid-elements-bundled.js"></script>
+  <!-- 加载独立版 db-grid Web Component -->
+  <script src="./db-grid-standalone.js"></script>
 </body>
 </html>
