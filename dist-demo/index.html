@@ -36,7 +36,7 @@
   
   <div id="status" class="loading">等待 db-grid-element 注册...</div>
   
-  <db-grid-element id="grid" style="display: block; width: 100%; height: 400px; border: 1px solid #ddd;"></db-grid-element>
+  <db-grid-element id="grid" style="display: block; width: 100%; height: 400px; border: 1px solid #ddd;" row-data="[]" column-defs="[]"></db-grid-element>
   
   <div style="margin-top: 20px;">
     <h3>API 测试</h3>
@@ -65,22 +65,9 @@
     ];
     
     // 等待 custom element 注册
-    function waitForCustomElement(timeout = 15000) {
-      return new Promise((resolve, reject) => {
-        const startTime = Date.now();
-        
-        function check() {
-          if (customElements.get('db-grid-element')) {
-            resolve();
-          } else if (Date.now() - startTime > timeout) {
-            reject(new Error('等待 db-grid-element 注册超时'));
-          } else {
-            setTimeout(check, 100);
-          }
-        }
-        
-        check();
-      });
+    async function waitForCustomElement() {
+      // 使用 customElements.whenDefined() 更可靠
+      await customElements.whenDefined('db-grid-element');
     }
     
     async function init() {
@@ -96,11 +83,16 @@
         status.textContent = 'db-grid-element 注册成功！正在初始化数据...';
         status.className = 'success';
         
-        // 设置数据
-        grid.setAttribute('row-data', JSON.stringify(sampleData));
-        grid.setAttribute('column-defs', JSON.stringify(columnDefs));
+        // 等待一小段时间确保组件 DOM 就绪
+        await new Promise(r => setTimeout(r, 100));
+        
+        // 设置数据 - 使用 JavaScript 属性而非 HTML 属性
+        grid.rowData = sampleData;
+        grid.columnDefs = columnDefs;
         
         console.log('db-grid-element 初始化完成');
+        console.log('rowData:', grid.rowData);
+        console.log('columnDefs:', grid.columnDefs);
       } catch (err) {
         status.textContent = '错误: ' + err.message;
         status.className = 'error';
