@@ -13,23 +13,6 @@
     .success { background: #d4edda; color: #155724; }
     .error { background: #f8d7da; color: #721c24; }
   </style>
-  
-  <!-- Import map for ES modules -->
-  <script type="importmap">
-  {
-    "imports": {
-      "./chunk-TQPZRHFO.js": "./chunk-TQPZRHFO.js",
-      "./chunk-FK6H3RFT.js": "./chunk-FK6H3RFT.js",
-      "./chunk-5RVQ7557.js": "./chunk-5RVQ7557.js",
-      "./chunk-BOYL57GH.js": "./chunk-BOYL57GH.js",
-      "./chunk-GXAQDK3Q.js": "./chunk-GXAQDK3Q.js",
-      "./chunk-NUHLIM3N.js": "./chunk-NUHLIM3N.js",
-      "./chunk-UIJ6C4PS.js": "./chunk-UIJ6C4PS.js",
-      "./chunk-UPHFQ2NC.js": "./chunk-UPHFQ2NC.js",
-      "./main-YMLMMD3B.js": "./main-YMLMMD3B.js"
-    }
-  }
-  </script>
 </head>
 <body>
   <h1>db-grid-element Web Component Demo</h1>
@@ -66,7 +49,6 @@
     
     // 等待 custom element 注册
     async function waitForCustomElement() {
-      // 使用 customElements.whenDefined() 更可靠
       await customElements.whenDefined('db-grid-element');
     }
     
@@ -83,10 +65,8 @@
         status.textContent = 'db-grid-element 注册成功！正在初始化数据...';
         status.className = 'success';
         
-        // 等待一小段时间确保组件 DOM 就绪
         await new Promise(r => setTimeout(r, 100));
         
-        // 设置数据 - 使用 JavaScript 属性而非 HTML 属性
         grid.rowData = sampleData;
         grid.columnDefs = columnDefs;
         
@@ -100,7 +80,6 @@
       }
     }
     
-    // API 函数
     function exportExcel() {
       const grid = document.getElementById('grid');
       if (grid && grid.exportToExcel) {
@@ -122,11 +101,10 @@
       }
     }
     
-    // 启动
     init();
   </script>
   
-  <!-- 加载 Angular Elements bundle 作为 ES 模块 -->
-  <script src="./main-YMLMMD3B.js" type="module"></script>
+  <!-- 加载打包后的 Angular Elements (无 ES 模块) -->
+  <script src="./db-grid-elements-bundled.js"></script>
 </body>
 </html>
