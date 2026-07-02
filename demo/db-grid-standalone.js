@@ -18,6 +18,25 @@ class DbGridElement extends HTMLElement {
     this.render();
     this.initGrid();
   }
+  
+  render() {
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          display: block;
+          width: 100%;
+          height: 100%;
+          min-height: 400px;
+        }
+        .grid-container {
+          width: 100%;
+          height: 100%;
+          min-height: 400px;
+        }
+      </style>
+      <div class="grid-container"></div>
+    `;
+  }
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue === newValue) return;
@@ -43,42 +62,43 @@ class DbGridElement extends HTMLElement {
     }
   }
 
-  render() {
-    this.shadowRoot.innerHTML = `
-      <style>
-        :host {
-          display: block;
-          width: 100%;
-          height: 100%;
-          min-height: 400px;
-        }
-        .grid-container {
-          width: 100%;
-          height: 100%;
-          min-height: 400px;
-        }
-      </style>
-      <div class="grid-container"></div>
-    `;
-  }
-
   async initGrid() {
-    // 动态加载 AG Grid CSS
-    if (!document.querySelector('link[href*="ag-grid"]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://cdn.jsdelivr.net/npm/ag-grid-community@31/styles/ag-grid.css';
-      document.head.appendChild(link);
+    // 等待 AG Grid 加载
+    if (typeof agGrid === 'undefined') {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/ag-grid-community@31/dist/ag-grid-community.min.js';
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
     }
     
-    // 动态加载 AG Grid JS
-    if (typeof agGrid !== 'undefined') {
-      this.createGrid();
-    } else {
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/ag-grid-community@31/dist/ag-grid-community.min.js';
-      script.onload = () => this.createGrid();
-      document.head.appendChild(script);
+    // 将 AG Grid CSS 注入到 shadow DOM
+    await this.injectAGGridStyles();
+    
+    this.createGrid();
+  }
+  
+  async injectAGGridStyles() {
+    try {
+      const response = await fetch('https://cdn.jsdelivr.net/npm/ag-grid-community@31/styles/ag-grid.css');
+      const css = await response.text();
+      const style = document.createElement('style');
+      style.textContent = css;
+      this.shadowRoot.appendChild(style);
+    } catch (e) {
+      console.warn('Failed to load AG Grid CSS, using fallback styles:', e);
+      // Fallback 基础样式
+      const style = document.createElement('style');
+      style.textContent = `
+        .ag-theme-quartz { --ag-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .ag-root-wrapper { border: 1px solid #ddd; border-radius: 4px; }
+        .ag-header { background: #f5f5f5; font-weight: 600; }
+        .ag-row:hover { background: #f0f7ff; }
+        .ag-cell { display: flex; align-items: center; }
+      `;
+      this.shadowRoot.appendChild(style);
     }
   }
 
