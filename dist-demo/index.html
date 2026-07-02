@@ -1,209 +1,123 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DB Grid Demo - 简化版</title>
-  <link rel="stylesheet" href="./db-grid-styles.css">
+  <title>db-grid-element Demo</title>
+  <link rel="stylesheet" href="./styles-WAO5YLSM.css">
   <style>
-    body {
-      margin: 0;
-      padding: 20px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f5f5f5;
-    }
-    #app {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    h1 {
-      color: #333;
-      margin-bottom: 20px;
-    }
-    .toolbar {
-      margin: 16px 0;
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    button {
-      padding: 8px 16px;
-      background: #1890ff;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    button:hover {
-      background: #40a9ff;
-    }
-    .status {
-      margin-left: 12px;
-      color: #666;
-    }
-    .event-log {
-      margin-top: 16px;
-      padding: 12px;
-      background: #f5f5f5;
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 12px;
-    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; }
+    h1 { color: #2196f3; }
+    #status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+    .loading { background: #fff3cd; }
+    .success { background: #d4edda; color: #155724; }
+    .error { background: #f8d7da; color: #721c24; }
   </style>
 </head>
 <body>
-  <div id="app">
-    <h1>DB Grid Web Component Demo</h1>
-    
-    <div class="toolbar">
-      <button onclick="selectAll()">全选</button>
-      <button onclick="deselectAll()">取消全选</button>
-      <button onclick="refresh()">刷新</button>
-      <button onclick="exportCsv()">导出 CSV</button>
-      <span class="status" id="status">已选中 0 行</span>
-    </div>
-    
-    <!-- DB Grid Web Component -->
-    <db-grid-element id="myGrid"></db-grid-element>
-    
-    <div class="event-log" id="eventLog">等待事件...</div>
+  <h1>db-grid-element Web Component Demo</h1>
+  
+  <div id="status" class="loading">等待 db-grid-element 注册...</div>
+  
+  <db-grid-element id="grid" style="display: block; width: 100%; height: 400px; border: 1px solid #ddd;"></db-grid-element>
+  
+  <div style="margin-top: 20px;">
+    <h3>API 测试</h3>
+    <button onclick="exportExcel()">导出 Excel</button>
+    <button onclick="refreshData()">刷新数据</button>
+    <button onclick="resetState()">重置状态</button>
   </div>
-
-  <!-- 加载本地构建的 db-grid Web Component -->
-  <script src="./db-grid-elements.js"></script>
   
   <script>
-    // 列定义
-    const columnDefs = [
-      { field: 'id', headerName: 'ID', width: 70, checkboxSelection: true },
-      { field: 'name', headerName: '姓名', width: 120, sortable: true },
-      { field: 'age', headerName: '年龄', width: 80, sortable: true },
-      { field: 'email', headerName: '邮箱', width: 200 },
-      { field: 'department', headerName: '部门', width: 120, filter: true },
-      { field: 'salary', headerName: '薪资', width: 120, sortable: true },
-      { 
-        field: 'status', 
-        headerName: '状态', 
-        width: 100,
-        valueFormatter: (params) => params.value === 'active' ? '🟢 在职' : '🔴 离职'
-      },
-      { field: 'joinDate', headerName: '入职日期', width: 130 }
-    ];
-
     // 示例数据
-    const rowData = [
-      { id: 1, name: '张三', age: 28, email: 'zhangsan@example.com', department: '技术部', salary: 15000, status: 'active', joinDate: '2020-01-15' },
-      { id: 2, name: '李四', age: 35, email: 'lisi@example.com', department: '产品部', salary: 18000, status: 'active', joinDate: '2019-06-20' },
-      { id: 3, name: '王五', age: 42, email: 'wangwu@example.com', department: '设计部', salary: 20000, status: 'inactive', joinDate: '2018-03-10' },
-      { id: 4, name: '赵六', age: 31, email: 'zhaoliu@example.com', department: '市场部', salary: 16000, status: 'active', joinDate: '2021-09-05' },
-      { id: 5, name: '钱七', age: 26, email: 'qianqi@example.com', department: '技术部', salary: 12000, status: 'active', joinDate: '2022-02-28' },
-      { id: 6, name: '孙八', age: 38, email: 'sunba@example.com', department: '财务部', salary: 19000, status: 'active', joinDate: '2017-11-12' },
-      { id: 7, name: '周九', age: 29, email: 'zhoujiu@example.com', department: '技术部', salary: 14000, status: 'active', joinDate: '2021-04-18' },
-      { id: 8, name: '吴十', age: 45, email: 'wushi@example.com', department: '人力资源部', salary: 22000, status: 'inactive', joinDate: '2016-07-22' },
+    const sampleData = [
+      { id: 1, name: '张三', age: 28, department: '技术部', salary: 25000 },
+      { id: 2, name: '李四', age: 35, department: '产品部', salary: 30000 },
+      { id: 3, name: '王五', age: 42, department: '管理层', salary: 50000 },
+      { id: 4, name: '赵六', age: 26, department: '技术部', salary: 22000 },
+      { id: 5, name: '钱七', age: 31, department: '市场部', salary: 28000 },
     ];
-
-    // 等待 db-grid-element 注册
-    let gridElement = null;
-    let gridApi = null;
-
-    function log(message) {
-      const eventLog = document.getElementById('eventLog');
-      eventLog.textContent = message;
-      console.log(message);
+    
+    const columnDefs = [
+      { field: 'id', headerName: 'ID', width: 80 },
+      { field: 'name', headerName: '姓名', width: 120 },
+      { field: 'age', headerName: '年龄', width: 100 },
+      { field: 'department', headerName: '部门', width: 150 },
+      { field: 'salary', headerName: '薪资', width: 120, 
+        cellRenderer: (params) => '¥' + params.value.toLocaleString() },
+    ];
+    
+    // 等待 custom element 注册
+    function waitForCustomElement(timeout = 10000) {
+      return new Promise((resolve, reject) => {
+        const startTime = Date.now();
+        
+        function check() {
+          if (customElements.get('db-grid-element')) {
+            resolve();
+          } else if (Date.now() - startTime > timeout) {
+            reject(new Error('等待 db-grid-element 注册超时'));
+          } else {
+            setTimeout(check, 100);
+          }
+        }
+        
+        check();
+      });
     }
-
-    function updateStatus() {
-      if (gridApi) {
-        const selectedRows = gridApi.getSelectedRows();
-        document.getElementById('status').textContent = `已选中 ${selectedRows.length} 行`;
-      }
-    }
-
-    function selectAll() {
-      if (gridApi) {
-        gridApi.selectAll();
-        updateStatus();
-      }
-    }
-
-    function deselectAll() {
-      if (gridApi) {
-        gridApi.deselectAll();
-        updateStatus();
-      }
-    }
-
-    function refresh() {
-      if (gridApi) {
-        gridApi.refreshView();
-        log('表格已刷新');
-      }
-    }
-
-    function exportCsv() {
-      if (gridApi) {
-        const csv = gridApi.exportDataAsCsv({ fileName: '员工数据.csv' });
-        log('CSV 导出已触发');
-      }
-    }
-
-    // 初始化 grid
-    function initGrid() {
-      gridElement = document.getElementById('myGrid');
+    
+    async function init() {
+      const status = document.getElementById('status');
+      const grid = document.getElementById('grid');
       
-      if (!gridElement) {
-        log('❌ 找不到 db-grid-element');
-        return;
-      }
-
-      // 设置属性
-      gridElement.rowData = rowData;
-      gridElement.columnDefs = columnDefs;
-      gridElement.height = '400px';
-
-      // 监听事件
-      gridElement.addEventListener('gridReady', (event) => {
-        log('✅ Grid Ready');
-        gridApi = event.detail?.api || gridElement.getGridApi?.();
-        console.log('Grid API:', gridApi);
-      });
-
-      gridElement.addEventListener('selectionChanged', (event) => {
-        updateStatus();
-        const selectedRows = event.detail?.selectedRows || [];
-        log(`选择变化: ${selectedRows.length} 行`);
-      });
-
-      gridElement.addEventListener('cellClick', (event) => {
-        const detail = event.detail;
-        log(`单元格点击: [${detail.colDef?.field}] = ${detail.value}`);
-      });
-
-      gridElement.addEventListener('rowClicked', (event) => {
-        const detail = event.detail;
-        log(`行点击: ${detail.data?.name}`);
-      });
-
-      log('正在初始化 Grid...');
-    }
-
-    // 等待 Web Component 注册完成
-    function waitForElement() {
-      if (customElements.get('db-grid-element')) {
-        log('✅ db-grid-element 已注册');
-        setTimeout(initGrid, 100);
-      } else {
-        log('⏳ 等待 db-grid-element 注册...');
-        setTimeout(waitForElement, 100);
+      try {
+        status.textContent = '正在等待 db-grid-element 注册...';
+        status.className = 'loading';
+        
+        await waitForCustomElement();
+        
+        status.textContent = 'db-grid-element 注册成功！正在初始化数据...';
+        status.className = 'success';
+        
+        // 设置数据
+        grid.setAttribute('row-data', JSON.stringify(sampleData));
+        grid.setAttribute('column-defs', JSON.stringify(columnDefs));
+        
+        console.log('db-grid-element 初始化完成');
+      } catch (err) {
+        status.textContent = '错误: ' + err.message;
+        status.className = 'error';
+        console.error(err);
       }
     }
-
+    
+    // API 函数
+    function exportExcel() {
+      const grid = document.getElementById('grid');
+      if (grid && grid.exportToExcel) {
+        grid.exportToExcel('demo-export.xlsx');
+      }
+    }
+    
+    function refreshData() {
+      const grid = document.getElementById('grid');
+      if (grid && grid.refreshData) {
+        grid.refreshData();
+      }
+    }
+    
+    function resetState() {
+      const grid = document.getElementById('grid');
+      if (grid && grid.resetState) {
+        grid.resetState();
+      }
+    }
+    
     // 启动
-    document.addEventListener('DOMContentLoaded', () => {
-      log('页面加载完成，等待 Web Component...');
-      setTimeout(waitForElement, 500);
-    });
+    init();
   </script>
+  
+  <!-- 加载 Angular Elements bundle -->
+  <script src="./main-YMLMMD3B.js" type="module"></script>
 </body>
 </html>
