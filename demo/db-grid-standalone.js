@@ -1,5 +1,5 @@
-// db-grid Web Component - 独立版本
-// 使用 AG Grid Community Edition，样式通过 Light DOM 加载
+// db-grid Web Component - 轻量级版本，无外部依赖
+// 自带完整样式和图标
 
 class DbGridElement extends HTMLElement {
   static get observedAttributes() {
@@ -11,134 +11,224 @@ class DbGridElement extends HTMLElement {
     this._gridApi = null;
     this._rowData = [];
     this._columnDefs = [];
-    this._initialized = false;
+    this._sortField = null;
+    this._sortDir = null;
+    this._currentPage = 1;
+    this._pageSize = 10;
+    this._selectedRows = new Set();
   }
 
   connectedCallback() {
-    if (this._initialized) return;
-    this._initialized = true;
-    
-    // 确保容器 div 存在
-    if (!this.querySelector('.grid-container')) {
-      const container = document.createElement('div');
-      container.className = 'grid-container';
-      this.appendChild(container);
-    }
-    
-    // 加载 AG Grid JS 和 CSS
-    this.loadAGGrid().then(() => this.createGrid());
+    this.render();
+    this.loadStyles();
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
-    if (oldValue === newValue || !this._gridApi) return;
-    
+    if (oldValue === newValue) return;
     if (name === 'row-data') {
-      try {
-        this._rowData = JSON.parse(newValue || '[]');
-        this._gridApi.setGridOption('rowData', this._rowData);
-      } catch (e) { console.error('Failed to parse row-data:', e); }
+      try { this._rowData = JSON.parse(newValue || '[]'); this.renderTable(); } catch (e) {}
     }
-    
     if (name === 'column-defs') {
-      try {
-        this._columnDefs = JSON.parse(newValue || '[]');
-        this._gridApi.setGridOption('columnDefs', this._columnDefs);
-      } catch (e) { console.error('Failed to parse column-defs:', e); }
+      try { this._columnDefs = JSON.parse(newValue || '[]'); this.renderTable(); } catch (e) {}
     }
   }
 
-  async loadAGGrid() {
-    // 加载 AG Grid CSS + JS 全部资源（包含图标）
-    if (!document.querySelector('link[data-ag-grid-css]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://cdn.jsdelivr.net/npm/ag-grid-community@31/styles/ag-grid.css';
-      link.setAttribute('data-ag-grid-css', 'true');
-      document.head.appendChild(link);
-      // 等待 CSS 完全加载（包括背景图标的 fetch）
-      await new Promise(resolve => { link.onload = resolve; link.onerror = resolve; });
-    }
+  loadStyles() {
+    if (document.getElementById('db-grid-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'db-grid-styles';
+    style.textContent = `
+      .db-grid { width: 100%; height: 100%; min-height: 400px; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: #333; }
+      .db-grid-header { display: flex; background: #f8f9fa; border-bottom: 2px solid #e9ecef; font-weight: 600; color: #495057; }
+      .db-grid-header-cell { padding: 12px 16px; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px; transition: background 0.15s; }
+      .db-grid-header-cell:hover { background: #e9ecef; }
+      .db-grid-header-cell.sorted { color: #2196f3; }
+      .db-grid-body { overflow-y: auto; flex: 1; }
+      .db-grid-row { display: flex; border-bottom: 1px solid #eee; transition: background 0.1s; }
+      .db-grid-row:hover { background: #f0f7ff; }
+      .db-grid-row.selected { background: #e3f2fd; }
+      .db-grid-cell { padding: 10px 16px; display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .db-grid-checkbox { width: 40px; justify-content: center; }
+      .db-grid-checkbox input { width: 16px; height: 16px; cursor: pointer; accent-color: #2196f3; }
+      .db-grid-footer { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #f8f9fa; border-top: 1px solid #e9ecef; }
+      .db-grid-info { color: #6c757d; font-size: 13px; }
+      .db-grid-pagination { display: flex; gap: 4px; }
+      .db-grid-page-btn { padding: 4px 10px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-size: 13px; transition: all 0.15s; }
+      .db-grid-page-btn:hover:not(:disabled) { background: #e9ecef; border-color: #adb5bd; }
+      .db-grid-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+      .db-grid-page-btn.active { background: #2196f3; color: white; border-color: #2196f3; }
+      .sort-icon { font-size: 10px; opacity: 0.5; }
+      .sort-icon.active { opacity: 1; }
+      .filter-icon { font-size: 11px; margin-left: auto; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  render() {
+    this.innerHTML = `
+      <div class="db-grid" style="display:flex;flex-direction:column;">
+        <div class="db-grid-header"></div>
+        <div class="db-grid-body"></div>
+        <div class="db-grid-footer">
+          <div class="db-grid-info">共 <span class="total-count">0</span> 条</div>
+          <div class="db-grid-pagination"></div>
+        </div>
+      </div>
+    `;
+    this.renderTable();
+  }
+
+  renderTable() {
+    const header = this.querySelector('.db-grid-header');
+    const body = this.querySelector('.db-grid-body');
     
-    if (typeof agGrid === 'undefined') {
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/ag-grid-community@31/dist/ag-grid-community.min.js';
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
+    // 渲染表头
+    header.innerHTML = '';
+    this._columnDefs.forEach(col => {
+      const isSorted = this._sortField === col.field;
+      const th = document.createElement('div');
+      th.className = 'db-grid-header-cell' + (isSorted ? ' sorted' : '');
+      th.style.width = col.width ? `${col.width}px` : '150px';
+      th.style.flex = col.width ? 'none' : '1';
+      th.innerHTML = `
+        ${col.checkboxSelection ? '<input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:#2196f3;">' : ''}
+        <span>${col.headerName || col.field}</span>
+        ${col.sortable !== false ? `<span class="sort-icon ${isSorted ? 'active' : ''}">${isSorted ? (this._sortDir === 'asc' ? '▲' : '▼') : '▼'}</span>` : ''}
+      `;
+      th.onclick = () => this.handleSort(col.field);
+      header.appendChild(th);
+    });
+
+    // 排序和分页
+    let data = [...this._rowData];
+    if (this._sortField) {
+      data.sort((a, b) => {
+        const va = a[this._sortField], vb = b[this._sortField];
+        const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+        return this._sortDir === 'desc' ? -cmp : cmp;
       });
     }
-    
-    // 注入图标样式（SVG data URI）
-    if (!document.getElementById('ag-grid-icons')) {
-      const iconStyle = document.createElement('style');
-      iconStyle.id = 'ag-grid-icons';
-      iconStyle.textContent = `
-        .ag-icon { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; }
-        .ag-icon::before { content: ''; display: block; width: 16px; height: 16px; }
-        .ag-icon-asc::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23666' d='M8 4l5 6H3z'/%3E%3C/svg%3E") no-repeat center; }
-        .ag-icon-desc::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23666' d='M8 12l5-6H3z'/%3E%3C/svg%3E") no-repeat center; }
-        .ag-icon-filter::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23666' d='M1 3h14v2H1zm3 4h8v2H4zm2 4h4v2H6z'/%3E%3C/svg%3E") no-repeat center; }
-        .ag-icon-columns::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect fill='%23666' x='1' y='2' width='4' height='12' rx='1'/%3E%3Crect fill='%23666' x='6' y='2' width='4' height='12' rx='1'/%3E%3Crect fill='%23666' x='11' y='2' width='4' height='12' rx='1'/%3E%3C/svg%3E") no-repeat center; }
-        .ag-icon-menu::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle fill='%23666' cx='4' cy='4' r='1.5'/%3E%3Ccircle fill='%23666' cx='4' cy='8' r='1.5'/%3E%3Ccircle fill='%23666' cx='4' cy='12' r='1.5'/%3E%3C/svg%3E") no-repeat center; }
-        .ag-icon-checkbox-checked::before, .ag-icon-check::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect fill='%232196f3' width='16' height='16' rx='2'/%3E%3Cpath fill='white' d='M4 8l3 3 5-6'/%3E%3C/svg%3E") no-repeat center; }
-        .ag-icon-checkbox-unchecked::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect stroke='%23666' fill='white' width='16' height='16' rx='2'/%3E%3C/svg%3E") no-repeat center; }
-        .ag-icon-pagination-first::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23666' d='M3 3h2v10H3zm8 0l-6 5 6 5V3z'/%3E%3C/svg%3E") no-repeat center; }
-        .ag-icon-pagination-last::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23666' d='M11 3h2v10h-2zm-8 0l6 5-6 5V3z'/%3E%3C/svg%3E") no-repeat center; }
-        .ag-icon-pagination-prev::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23666' d='M10 3l-6 5 6 5V3z'/%3E%3C/svg%3E") no-repeat center; }
-        .ag-icon-pagination-next::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23666' d='M6 3l6 5-6 5V3z'/%3E%3C/svg%3E") no-repeat center; }
-      `;
-      document.head.appendChild(iconStyle);
+    const total = data.length;
+    const start = (this._currentPage - 1) * this._pageSize;
+    const pageData = data.slice(start, start + this._pageSize);
+
+    // 渲染行
+    body.innerHTML = '';
+    pageData.forEach((row, idx) => {
+      const tr = document.createElement('div');
+      tr.className = 'db-grid-row' + (this._selectedRows.has(start + idx) ? ' selected' : '');
+      tr.dataset.index = start + idx;
+      this._columnDefs.forEach(col => {
+        const td = document.createElement('div');
+        td.className = 'db-grid-cell' + (col.checkboxSelection ? ' db-grid-checkbox' : '');
+        td.style.width = col.width ? `${col.width}px` : '150px';
+        td.style.flex = col.width ? 'none' : '1';
+        if (col.checkboxSelection) {
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = this._selectedRows.has(start + idx);
+          cb.onchange = () => this.toggleRow(start + idx, cb.checked, row);
+          td.appendChild(cb);
+        } else if (col.cellRenderer) {
+          td.textContent = col.cellRenderer({ value: row[col.field], data: row });
+        } else if (col.valueFormatter) {
+          td.textContent = col.valueFormatter({ value: row[col.field], data: row });
+        } else {
+          td.textContent = row[col.field] ?? '';
+        }
+        tr.appendChild(td);
+      });
+      tr.onclick = (e) => { if (e.target.type !== 'checkbox') this.selectRow(start + idx); };
+      body.appendChild(tr);
+    });
+
+    // 更新分页
+    this.querySelector('.total-count').textContent = total;
+    this.renderPagination(total);
+  }
+
+  renderPagination(total) {
+    const pagination = this.querySelector('.db-grid-pagination');
+    const totalPages = Math.ceil(total / this._pageSize) || 1;
+    const pages = [];
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= this._currentPage - 1 && i <= this._currentPage + 1)) {
+        pages.push(i);
+      } else if (pages[pages.length - 1] !== '...') {
+        pages.push('...');
+      }
+    }
+    pagination.innerHTML = `
+      <button class="db-grid-page-btn" ${this._currentPage === 1 ? 'disabled' : ''} onclick="this.getRootNode().host.prevPage()">«</button>
+      ${pages.map(p => p === '...' ? '<span style="padding:4px 8px;color:#999;">...</span>' : 
+        `<button class="db-grid-page-btn ${p === this._currentPage ? 'active' : ''}" onclick="this.getRootNode().host.goToPage(${p})">${p}</button>`).join('')}
+      <button class="db-grid-page-btn" ${this._currentPage === totalPages ? 'disabled' : ''} onclick="this.getRootNode().host.nextPage()">»</button>
+    `;
+  }
+
+  handleSort(field) {
+    if (this._sortField === field) {
+      this._sortDir = this._sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      this._sortField = field;
+      this._sortDir = 'asc';
+    }
+    this._currentPage = 1;
+    this.renderTable();
+  }
+
+  selectRow(idx) {
+    const row = this.querySelector(`.db-grid-row[data-index="${idx}"]`);
+    if (row) row.classList.toggle('selected');
+    if (this._selectedRows.has(idx)) {
+      this._selectedRows.delete(idx);
+    } else {
+      this._selectedRows.add(idx);
     }
   }
 
-  createGrid() {
-    const container = this.querySelector('.grid-container');
-    
-    const gridOptions = {
-      columnDefs: this._columnDefs,
-      rowData: this._rowData,
-      defaultColDef: {
-        sortable: true,
-        filter: true,
-        resizable: true,
-      },
-      pagination: true,
-      paginationPageSize: 10,
-      onGridReady: (params) => {
-        this._gridApi = params.api;
-        console.log('db-grid-element initialized');
-      },
-    };
+  toggleRow(idx, checked, row) {
+    if (checked) {
+      this._selectedRows.add(idx);
+      this.querySelector(`.db-grid-row[data-index="${idx}"]`)?.classList.add('selected');
+    } else {
+      this._selectedRows.delete(idx);
+      this.querySelector(`.db-grid-row[data-index="${idx}"]`)?.classList.remove('selected');
+    }
+  }
 
-    agGrid.createGrid(container, gridOptions);
+  goToPage(page) { this._currentPage = page; this.renderTable(); }
+  prevPage() { if (this._currentPage > 1) { this._currentPage--; this.renderTable(); } }
+  nextPage() { 
+    const totalPages = Math.ceil(this._rowData.length / this._pageSize) || 1;
+    if (this._currentPage < totalPages) { this._currentPage++; this.renderTable(); }
   }
 
   // JavaScript API
-  set rowData(data) {
-    this._rowData = data;
-    if (this._gridApi) {
-      this._gridApi.setGridOption('rowData', data);
-    }
-  }
+  set rowData(data) { this._rowData = data; this._currentPage = 1; if (this.querySelector('.db-grid-body')) this.renderTable(); }
   get rowData() { return this._rowData; }
-
-  set columnDefs(cols) {
-    this._columnDefs = cols;
-    if (this._gridApi) {
-      this._gridApi.setGridOption('columnDefs', cols);
-    }
-  }
+  set columnDefs(cols) { this._columnDefs = cols; if (this.querySelector('.db-grid-body')) this.renderTable(); }
   get columnDefs() { return this._columnDefs; }
 
   exportToExcel(filename = 'export.xlsx') {
-    this._gridApi?.exportDataAsExcel({ fileName: filename });
+    const ws = this._rowData.map(row => {
+      const obj = {};
+      this._columnDefs.forEach(col => { if (!col.checkboxSelection) obj[col.headerName || col.field] = row[col.field]; });
+      return obj;
+    });
+    // 简单CSV导出
+    if (ws.length === 0) return;
+    const headers = Object.keys(ws[0]);
+    const csv = [headers.join(','), ...ws.map(r => headers.map(h => JSON.stringify(r[h] ?? '')).join(','))].join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename.replace('.xlsx', '.csv');
+    link.click();
   }
-  refreshData() { this._gridApi?.refreshCells(); }
-  resetState() {
-    this._gridApi?.resetColumnState();
-    this._gridApi?.setFilterModel(null);
-  }
+
+  refreshData() { this.renderTable(); }
+  resetState() { this._sortField = null; this._sortDir = null; this._currentPage = 1; this._selectedRows.clear(); this.renderTable(); }
 }
 
 customElements.define('db-grid-element', DbGridElement);
